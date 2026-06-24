@@ -32,54 +32,63 @@ void line_follower(int argc, char *argv[])
   int irL,irR;	// status of infrared sensors
   int lfL,lfR;	// status of line sensors
   int fwdSpeed = 60;
+  int statusP37 = 0; // status flag for Pin 37
+  int timeP37 = 0; // execution counter for control loop
+  int timeP37sw = 0 // exec counter of last switch
+  pinMode (37, OUTPUT) ; // set Pin 37 to output mode
 
-  // initio_DriveForward (... ); // todo: Initially, try to drive straight forward
   initio_DriveForward(fwdSpeed);
 
+  //Control Loop
   while (ch != 'q') {
     mvprintw(1, 1,"%s: Press 'q' to end program", argv[0]);
 
     irL = initio_IrLeft();
     irR = initio_IrRight();
-    lfL = initio_IrLineLeft(); // todo: replace by read left line sensor
-    lfR = initio_IrLineRight(); // todo: replace by read right line sensor
+    lfL = initio_IrLineLeft();
+    lfR = initio_IrLineRight(); 
 
-    if (irL != 0 || irR != 0 && (lfL == 1 || lfR ==1)) {
+    //Flashing LED to indicate active program
+    timeP37 = millis(); // get current time (unit ms)
+    if (timeP37 > (timeP37sw + 500)) {
+      statusP37 = ! statusP37; // toggle pin P37 value
+      digitalWrite (37, statusP37); // set Pin 37 to current value
+      timeP37sw = timeP37;
+    }
+    
+    if (irL != 0 || irR != 0) {
       mvprintw(3, 1,"Action 1: Stop (IR sensors: %d, %d)     ", irL, irR);
       initio_DriveForward (0); // Stop
     }
-    // no obstacle ahead, so focus on line following
-    else if (irL == 0 && irR == 0 && (lfL == 1 || lfR ==1)) { 
+    //No obstacle ahead, so focus on line following
+    else if (irL == 0 && irR == 0 && (lfL == 1 && lfR ==1)) { 
       mvprintw(3, 1,"Action 2: Straight (Line sensors: %d, %d)    ", lfL, lfR);
-      initio_DriveForward(60);// todo: move straight forward
+      initio_DriveForward(60);
     }
-    else if (lfL != 0 && lfR == 0) {
-      // car is too much on the right
+    else if (lfL == 1 && lfR == 0) {
+      //The car is too much on the right
       mvprintw(3, 1,"Action 3: Spin left (Line sensors: %d, %d)    ", lfL, lfR);
-      initio_TurnForward(30, 100);// todo: turn left
+      initio_TurnForward(30, 100);
       delay(100);
     }
-    else if (lfL == 0 && lfR != 0) {
-      // car is too much on the left
+    else if (lfL == 0 && lfR == 1) {
+      //The car is too much on the left
       mvprintw(3, 1,"Action 4: Spin right (Line sensors: %d, %d)    ", lfL, lfR);
-      initio_TurnForward(100, 30)// todo: turn right
+      initio_TurnForward(100, 30);
       delay(100);
     }
     else {
+      //The line has been lost
       mvprintw(3, 1,"Lost my line (Line sensors: %d, %d)        ", lfL, lfR);
-      //initio_DriveForward (0);// todo: Stop
-      initio_DriveReverse(50);
-      if (lfR && lfL)
-      {
-        initio_SpinRight(100);
-        delay(50);
-      } 
+      initio_SpinRight(100);
+      delay(100);
     }
 
     ch = getch();
-    if (ch != ERR)
+    if (ch != ERR){
       mvprintw(2, 1,"Key code: '%c' (%d)", ch, ch);
-    refresh();  // curses
+      refresh();  // curses
+    }
   } // while
 
   return;
